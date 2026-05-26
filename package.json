@@ -1,0 +1,29 @@
+{
+  "name": "planing-semanal-entrenamiento",
+  "version": "1.0.0",
+  "description": "App de Entrenamiento Híbrido (Web)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test:generator": "node --loader ts-node/esm src/testGenerator.ts",
+    "test:timer": "node --loader ts-node/esm src/testTimer.ts"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react-swc": "^3.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.6"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.60.4"
+  }
+}

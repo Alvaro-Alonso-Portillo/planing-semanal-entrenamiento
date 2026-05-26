@@ -1,0 +1,130 @@
+import { useEffect, useRef } from 'react';
+import { useTimerStore } from '../state/useTimerStore';
+
+export const useWebTimer = () => {
+  const { status, secondsRemaining, tick, syncTime, pause } = useTimerStore();
+  
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const accumulatedTimeRef = useRef<number>(0);
+  const lastSecondAlertRef = useRef<number>(-1);
+
+  // Reproducir un pitido sintetizado usando Web Audio API (cero dependencias de ficheros externos)
+  const playBeep = (type: 'short' | 'long') => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      
+      const ctx = new AudioContextClass();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      // Pitido corto (800Hz, 0.15s) vs largo (1200Hz, 0.5s)
+      const freq = type === 'short' ? 800 : 1200;
+      const duration = type === 'short' ? 0.15 : 0.5;
+      
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      osc.type = 'sine';
+      
+      // Suave atenuación (fade out) para evitar clics de audio abruptos
+      gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + duration);
+
+      // Vibración Web (si está disponible y soportada por el móvil del usuario)
+      if ('vibrate' in navigator) {
+        navigator.vibrate(type === 'short' ? 100 : 300);
+      }
+    } catch (e) {
+      console.warn('El audio aún no tiene interacción del usuario o no está soportado:', e);
+    }
+  };
+
+  // Escuchar el contador para lanzar sonidos en los segundos clave
+  useEffect(() => {
+    if (status !== 'running') return;
+
+    if (lastSecondAlertRef.current === secondsRemaining) return;
+    lastSecondAlertRef.current = secondsRemaining;
+
+    if (secondsRemaining <= 3 && secondsRemaining >= 1) {
+      playBeep('short');
+    } else if (secondsRemaining === 60 || secondsRemaining === 0) {
+      playBeep('long');
+    }
+  }, [secondsRemaining, status]);
+
+  // Event loop de precisión usando Delta Time
+  useEffect(() => {
+    if (status === 'running') {
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now();
+      }
+
+      timerRef.current = setInterval(() => {
+        if (startTimeRef.current) {
+          const now = Date.now();
+          const deltaMs = now - startTimeRef.current + accumulatedTimeRef.current;
+          const elapsedSeconds = Math.floor(deltaMs / 1000);
+          
+          syncTime(elapsedSeconds);
+        }
+      }, 100);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      if (status === 'paused') {
+        if (startTimeRef.current) {
+          accumulatedTimeRef.current += Date.now() - startTimeRef.current;
+          startTimeRef.current = null;
+        }
+      } else if (status === 'idle' || status === 'completed') {
+        startTimeRef.current = null;
+        accumulatedTimeRef.current = 0;
+        lastSecondAlertRef.current = -1;
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [status]);
+
+  // Manejo de visibilidad (segundo plano al bloquear pantalla o cambiar pestaña)
+  useEffect(() => {
+    let backgroundTime: number | null = null;
+
+    const handleVisibilityChange = () => {
+      if (status !== 'running') return;
+
+      if (document.hidden) {
+        backgroundTime = Date.now();
+      } else if (backgroundTime && startTimeRef.current) {
+        const offlineDuration = Date.now() - backgroundTime;
+        startTimeRef.current = startTimeRef.current - offlineDuration;
+        backgroundTime = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [status]);
+
+  return {
+    status,
+    secondsRemaining,
+    pause,
+  };
+};
