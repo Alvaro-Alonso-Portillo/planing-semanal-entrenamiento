@@ -1,20 +1,34 @@
+@import "./design-tokens.css";
+
 :root {
-  --bg-primary: #f5f5f7;
-  --bg-secondary: rgba(255, 255, 255, 0.82);
-  --bg-card: rgba(255, 255, 255, 0.65);
-  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  --bg-primary: var(--color-bg-primary);
+  --bg-secondary: var(--color-bg-secondary);
+  --bg-card: var(--color-bg-card);
+  --bg-card-hover: var(--color-bg-card-hover);
   
-  --accent-neon-green: #34c759; /* Verde Activo Premium */
-  --accent-neon-red: #ff3b30; /* Rojo Coral Alerta */
-  --accent-neon-blue: #0071e3; /* Azul Cobalto */
-  --accent-orange: #ff9500;
+  --accent-neon-green: var(--color-accent-green);
+  --accent-neon-red: var(--color-accent-red);
+  --accent-neon-blue: var(--color-accent-blue);
+  --accent-orange: var(--color-accent-orange);
   
-  --text-primary: #1d1d1f; /* Carbón Oscuro */
-  --text-secondary: #424248; /* Gris Grafito Oscuro de alto contraste */
-  --text-muted: #8e8e93;
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
   
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-color-active: rgba(0, 0, 0, 0.15);
+  --border-color: var(--color-border);
+  --border-color-active: var(--color-border-active);
+  
+  --radius-sm: var(--primitive-radius-sm);
+  --radius-md: var(--primitive-radius-md);
+  --radius-lg: var(--primitive-radius-lg);
+  --radius-xl: var(--primitive-radius-xl);
+  --radius-2xl: var(--primitive-radius-2xl);
+  
+  --shadow-sm: var(--primitive-shadow-sm);
+  --shadow-md: var(--primitive-shadow-md);
+  --shadow-lg: var(--primitive-shadow-lg);
+  --shadow-glow-green: var(--primitive-shadow-glow-green);
+  --shadow-glow-blue: var(--primitive-shadow-glow-blue);
   
   font-family: 'Outfit', sans-serif;
   color-scheme: light;
@@ -24,6 +38,7 @@
   padding: 0;
   box-sizing: border-box;
 }
+
 
 body {
   margin: 0;
