@@ -58,8 +58,16 @@ export default function App() {
       ) : (
         <div className="home-container">
           <header className="home-header">
-            <span className="app-logo">⚡</span>
-            <h1 className="app-title">Hybrid Training Hub</h1>
+            <div className="logo-badge">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="logo-svg">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                <path d="M2 4h2" />
+                <path d="M22 4h-2" />
+                <path d="M12 2v2" />
+              </svg>
+            </div>
+            <h1 className="app-title">Hybrid Fit Planner</h1>
             <p className="app-subtitle">Tu planificador inteligente de natación y gimnasio</p>
           </header>
 
@@ -68,7 +76,11 @@ export default function App() {
               <h2 className="section-title">Generador de Rutina Diaria</h2>
               <div className="button-grid">
                 <button className="workout-selector-btn gym" onClick={handleGenerateGym}>
-                  <span className="btn-icon">🏋️‍♂️</span>
+                  <span className="btn-icon">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6.5 6.5h11M6.5 17.5h11M3 21h18M3 3h18M6.5 6.5v11M17.5 6.5v11" />
+                    </svg>
+                  </span>
                   <div className="btn-info">
                     <span className="btn-title">Gimnasio</span>
                     <span className="btn-subtitle">EMOM • Sin apoyo de pie</span>
@@ -76,7 +88,11 @@ export default function App() {
                 </button>
 
                 <button className="workout-selector-btn swim" onClick={handleGenerateSwim}>
-                  <span className="btn-icon">🏊‍♂️</span>
+                  <span className="btn-icon">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12h20M2 16h20M2 8h20M12 2v6" />
+                    </svg>
+                  </span>
                   <div className="btn-info">
                     <span className="btn-title">Natación</span>
                     <span className="btn-subtitle">Principiante • ~1000 metros</span>
@@ -90,12 +106,16 @@ export default function App() {
                 <h3 className="preview-title">Rutina Generada:</h3>
                 
                 {isSwimCompleted && selectedWorkout.type === 'Natación' ? (
-                  // Celebración de Natación
                   <div className="preview-card completion-container" style={{ padding: '32px 24px' }}>
-                    <span className="completion-emoji">🎉</span>
-                    <h2 className="completion-title" style={{ color: 'var(--accent-neon-blue)' }}>¡Sesión de Natación Completada!</h2>
+                    <div className="completion-icon-wrapper blue">
+                      <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="completion-svg">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    </div>
+                    <h2 className="completion-title" style={{ color: 'var(--accent-blue)' }}>¡Sesión de Natación Completada!</h2>
                     <p className="completion-subtitle">¡Excelente nado! Has completado los 1000 metros con éxito y se ha guardado en tu historial.</p>
-                    <button className="back-button primary" style={{ background: 'linear-gradient(135deg, var(--accent-neon-blue) 0%, #0056b3 100%)', boxShadow: '0 8px 20px rgba(0, 113, 227, 0.2)' }} onClick={handleCancelWorkout}>
+                    <button className="back-button primary swim-color" onClick={handleCancelWorkout}>
                       Volver al Menú
                     </button>
                   </div>
@@ -125,7 +145,6 @@ export default function App() {
                       <div className="swim-preview-details">
                         <p className="workout-desc">Volumen total planificado: <strong>{(selectedWorkout as SwimWorkout).totalDistanceMeters}m</strong></p>
                         
-                        {/* Timeline Deportivo para Natacion */}
                         <div className="swim-timeline">
                           {/* Calentamiento */}
                           {(selectedWorkout as SwimWorkout).warmup.map((i, idx) => (
@@ -196,8 +215,7 @@ export default function App() {
                           ))}
                         </div>
 
-                        {/* Botón de Completar Natación */}
-                        <button className="start-workout-btn" style={{ background: 'linear-gradient(135deg, var(--accent-neon-blue) 0%, #0056b3 100%)', boxShadow: '0 8px 24px rgba(0, 113, 227, 0.25)', color: '#ffffff' }} onClick={handleCompleteSwim}>
+                        <button className="start-workout-btn swim-color" onClick={handleCompleteSwim}>
                           Completar Sesión de Natación
                         </button>
                       </div>
