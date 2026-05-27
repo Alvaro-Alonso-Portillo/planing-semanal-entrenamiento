@@ -12,6 +12,7 @@ interface TimerState {
   workout: GymWorkout | SwimWorkout | null;
   currentExercise: Exercise | null;
   nextExercise: Exercise | null;
+  waitingForBlockStart: boolean; // Si está esperando a que el usuario inicie el siguiente bloque
   
   // Acciones
   setWorkout: (workout: GymWorkout | SwimWorkout) => void;
@@ -55,6 +56,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   workout: null,
   currentExercise: null,
   nextExercise: null,
+  waitingForBlockStart: false,
 
   setWorkout: (workout) => {
     if (workout.type === 'Gimnasio') {
@@ -67,6 +69,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         currentMinuteIndex: 0,
         currentExercise: current,
         nextExercise: next,
+        waitingForBlockStart: false,
       });
     } else {
       // Para natación
@@ -78,13 +81,14 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         currentMinuteIndex: 0,
         currentExercise: null,
         nextExercise: null,
+        waitingForBlockStart: false,
       });
     }
   },
 
   start: () => {
     if (get().workout && get().status !== 'completed') {
-      set({ status: 'running' });
+      set({ status: 'running', waitingForBlockStart: false });
     }
   },
 
@@ -104,6 +108,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         currentMinuteIndex: 0,
         currentExercise: null,
         nextExercise: null,
+        waitingForBlockStart: false,
       });
     }
   },
@@ -119,15 +124,29 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     } else {
       let nextMinute = currentMinuteIndex + 1;
       let nextBlock = currentBlockIndex;
+      let isTransition = false;
 
       if (nextMinute >= 10) {
         nextMinute = 0;
         nextBlock = currentBlockIndex + 1;
+        isTransition = true;
       }
 
       if (nextBlock >= gymWorkout.blocks.length) {
         // Completar automáticamente al expirar el tiempo total
         get().completeWorkout();
+      } else if (isTransition) {
+        // Pausa en transición de bloque
+        const { current, next } = getExercisesForTime(gymWorkout, nextBlock, nextMinute);
+        set({
+          status: 'paused',
+          waitingForBlockStart: true,
+          secondsRemaining: 60,
+          currentMinuteIndex: nextMinute,
+          currentBlockIndex: nextBlock,
+          currentExercise: current,
+          nextExercise: next,
+        });
       } else {
         const { current, next } = getExercisesForTime(gymWorkout, nextBlock, nextMinute);
         set({
@@ -203,6 +222,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       secondsRemaining: 0,
       currentExercise: null,
       nextExercise: null,
+      waitingForBlockStart: false,
     });
   },
 }));

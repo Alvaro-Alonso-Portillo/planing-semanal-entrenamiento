@@ -16,6 +16,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
     start,
     reset,
     completeWorkout,
+    waitingForBlockStart,
   } = useTimerStore();
 
   const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(() => {
@@ -37,7 +38,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
 
   // Voice Coach: Announce exercise transitions
   useEffect(() => {
-    if (status === 'running' && currentExercise?.name && !isVoiceMuted) {
+    if (status === 'running' && currentExercise?.name && !isVoiceMuted && !waitingForBlockStart) {
       window.speechSynthesis.cancel();
       const text = `Siguiente ejercicio: ${currentExercise.name}. Diez repeticiones.`;
       const utterance = new SpeechSynthesisUtterance(text);
@@ -45,19 +46,31 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
       utterance.rate = 1.0;
       window.speechSynthesis.speak(utterance);
     }
-  }, [currentExercise?.name, status, isVoiceMuted]);
+  }, [currentExercise?.name, status, isVoiceMuted, waitingForBlockStart]);
+
+  // Voice Coach: Announce block transition
+  useEffect(() => {
+    if (waitingForBlockStart && currentExercise?.name && !isVoiceMuted) {
+      window.speechSynthesis.cancel();
+      const text = `Bloque completado. Descanso para preparar el material. Siguiente ejercicio: ${currentExercise.name}.`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'es-ES';
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [waitingForBlockStart, currentExercise?.name, isVoiceMuted]);
 
   // Voice Coach: Countdown alert 3, 2, 1
   useEffect(() => {
-    if (status === 'running' && secondsRemaining <= 3 && secondsRemaining > 0 && !isVoiceMuted) {
+    if (status === 'running' && secondsRemaining <= 3 && secondsRemaining > 0 && !isVoiceMuted && !waitingForBlockStart) {
       const utterance = new SpeechSynthesisUtterance(secondsRemaining.toString());
       utterance.lang = 'es-ES';
       utterance.rate = 1.2;
       window.speechSynthesis.speak(utterance);
     }
-  }, [secondsRemaining, status, isVoiceMuted]);
+  }, [secondsRemaining, status, isVoiceMuted, waitingForBlockStart]);
 
-  if (!currentExercise && status !== 'completed') {
+  if (!currentExercise && status !== 'completed' && !waitingForBlockStart) {
     return (
       <div className="message-box">
         <p className="message-text">No hay ningún entrenamiento activo cargado.</p>
@@ -131,6 +144,40 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
           <p className="completion-subtitle">Excelente esfuerzo. Has completado tus bloques EMOM con éxito y se ha guardado en tu historial.</p>
           <button className="back-button primary" onClick={handleCancelAction}>
             Volver al Inicio
+          </button>
+        </div>
+      ) : waitingForBlockStart ? (
+        <div className="completion-container" style={{ animation: 'scaleUp 0.4s ease-out forwards' }}>
+          <div className="completion-icon-wrapper blue" style={{ width: '84px', height: '84px' }}>
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </div>
+          <h2 className="completion-title" style={{ fontSize: '1.8rem', color: 'var(--accent-neon-blue)' }}>¡Bloque Completado!</h2>
+          <p className="completion-subtitle" style={{ fontSize: '0.95rem', marginBottom: '24px' }}>
+            Tómate un breve descanso para preparar el material para el siguiente bloque.
+          </p>
+
+          <div className="card active-card" style={{ width: '100%', boxSizing: 'border-box', marginBottom: '28px', borderLeft: '4px solid var(--accent-neon-blue)' }}>
+            <span className="card-label-active" style={{ color: 'var(--accent-neon-blue)' }}>
+              PREPARANDO BLOQUE {currentBlockIndex + 1} DE 5
+            </span>
+            <h3 className="card-title-active" style={{ fontSize: '1.25rem' }}>{currentExercise?.name}</h3>
+            <div className="badge-row">
+              <span className="badge">{currentExercise?.category}</span>
+              <span className="badge">Cardio: {currentExercise?.cardiacIntensity}</span>
+            </div>
+          </div>
+
+          <button className="start-workout-btn swim-color" onClick={() => start()}>
+            INICIAR BLOQUE {currentBlockIndex + 1}
+          </button>
+          
+          <button className="back-button" style={{ marginTop: '16px', width: '100%' }} onClick={handleCancelAction}>
+            Cancelar Entrenamiento
           </button>
         </div>
       ) : (

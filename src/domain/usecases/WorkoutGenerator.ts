@@ -22,27 +22,34 @@ export class WorkoutGenerator {
     }
 
     const emomBlocks: EMOMBlock[] = [];
-    const usedCombinations = new Set<string>();
+    const pool = [...validExercises];
+    
+    // Mezclar el pool de ejercicios
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
 
     for (let i = 1; i <= 5; i++) {
-      // Intentamos seleccionar dos ejercicios diferentes para alternar en este bloque
       let exerciseA: Exercise;
       let exerciseB: Exercise;
-      let attempts = 0;
 
-      do {
-        exerciseA = validExercises[Math.floor(Math.random() * validExercises.length)];
-        exerciseB = validExercises[Math.floor(Math.random() * validExercises.length)];
-        attempts++;
-      } while (
-        (exerciseA.id === exerciseB.id || 
-         usedCombinations.has(`${exerciseA.id}-${exerciseB.id}`) ||
-         usedCombinations.has(`${exerciseB.id}-${exerciseA.id}`)) &&
-        attempts < 100
-      );
-
-      // Registrar la combinación para evitar repetición inmediata de los mismos pares en bloques consecutivos
-      usedCombinations.add(`${exerciseA.id}-${exerciseB.id}`);
+      if (pool.length >= 2) {
+        exerciseA = pool.pop()!;
+        exerciseB = pool.pop()!;
+      } else {
+        // Fallback si no quedan suficientes ejercicios únicos en el pool
+        const remainingValid = validExercises.filter(ex => !pool.includes(ex));
+        exerciseA = remainingValid.length > 0 
+          ? remainingValid[Math.floor(Math.random() * remainingValid.length)] 
+          : validExercises[Math.floor(Math.random() * validExercises.length)];
+        
+        let attempts = 0;
+        do {
+          exerciseB = validExercises[Math.floor(Math.random() * validExercises.length)];
+          attempts++;
+        } while (exerciseA.id === exerciseB.id && attempts < 50);
+      }
 
       emomBlocks.push({
         blockNumber: i,

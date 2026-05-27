@@ -54,6 +54,7 @@ function runTimerTests() {
 
   // 6. Simular sincronización de fondo al final del entrenamiento (simular que han pasado 50 minutos = 3000s)
   console.log(`\n[BACKGROUND SIMULATION] Simulando fin del entrenamiento completo (50 minutos = 3000s)...`);
+  useTimerStore.getState().start();
   useTimerStore.getState().syncTime(3000);
   state = useTimerStore.getState();
   console.log(`- Estatus: ${state.status} (Debe ser 'completed')`);
