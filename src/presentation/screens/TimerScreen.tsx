@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTimerStore } from '../state/useTimerStore';
 import { useWebTimer } from '../hooks/useWebTimer';
 import { AppDialog } from '../components/AppDialog';
+import { useVoiceCoach } from '../hooks/useVoiceCoach';
 
 interface TimerScreenProps {
   onCancel: () => void;
@@ -21,57 +22,29 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
     waitingForBlockStart,
   } = useTimerStore();
 
-  const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(() => {
-    const saved = localStorage.getItem('voice_coach_muted');
-    return saved === 'true';
-  });
+  const { isVoiceMuted, toggleVoiceMute, speak, cancel } = useVoiceCoach();
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
-
-  // Toggle voice mute
-  const toggleVoiceMute = () => {
-    setIsVoiceMuted((prev) => {
-      const newVal = !prev;
-      localStorage.setItem('voice_coach_muted', String(newVal));
-      if (newVal) {
-        window.speechSynthesis.cancel();
-      }
-      return newVal;
-    });
-  };
 
   // Voice Coach: Announce exercise transitions
   useEffect(() => {
-    if (status === 'running' && currentExercise?.name && !isVoiceMuted && !waitingForBlockStart) {
-      window.speechSynthesis.cancel();
-      const text = `Siguiente ejercicio: ${currentExercise.name}. Diez repeticiones.`;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'es-ES';
-      utterance.rate = 1.0;
-      window.speechSynthesis.speak(utterance);
+    if (status === 'running' && currentExercise?.name && !waitingForBlockStart) {
+      speak(`Siguiente ejercicio: ${currentExercise.name}. Diez repeticiones.`, { rate: 0.95 });
     }
-  }, [currentExercise?.name, status, isVoiceMuted, waitingForBlockStart]);
+  }, [currentExercise?.name, status, waitingForBlockStart, speak]);
 
   // Voice Coach: Announce block transition
   useEffect(() => {
-    if (waitingForBlockStart && currentExercise?.name && !isVoiceMuted) {
-      window.speechSynthesis.cancel();
-      const text = `Bloque completado. Descanso para preparar el material. Siguiente ejercicio: ${currentExercise.name}.`;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'es-ES';
-      utterance.rate = 1.0;
-      window.speechSynthesis.speak(utterance);
+    if (waitingForBlockStart && currentExercise?.name) {
+      speak(`Bloque completado. Descanso para preparar el material. Siguiente ejercicio: ${currentExercise.name}.`, { rate: 0.95 });
     }
-  }, [waitingForBlockStart, currentExercise?.name, isVoiceMuted]);
+  }, [waitingForBlockStart, currentExercise?.name, speak]);
 
   // Voice Coach: Countdown alert 3, 2, 1
   useEffect(() => {
-    if (status === 'running' && secondsRemaining <= 3 && secondsRemaining > 0 && !isVoiceMuted && !waitingForBlockStart) {
-      const utterance = new SpeechSynthesisUtterance(secondsRemaining.toString());
-      utterance.lang = 'es-ES';
-      utterance.rate = 1.2;
-      window.speechSynthesis.speak(utterance);
+    if (status === 'running' && secondsRemaining <= 3 && secondsRemaining > 0 && !waitingForBlockStart) {
+      speak(secondsRemaining.toString(), { rate: 1.2 });
     }
-  }, [secondsRemaining, status, isVoiceMuted, waitingForBlockStart]);
+  }, [secondsRemaining, status, waitingForBlockStart, speak]);
 
   if (!currentExercise && status !== 'completed' && !waitingForBlockStart) {
     return (
@@ -85,6 +58,8 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
   }
 
   const isAlertZone = secondsRemaining <= 3 && secondsRemaining > 0;
+  const completedBlocks = status === 'completed' ? 5 : currentBlockIndex;
+  const stageClass = isAlertZone ? 'alert-mode' : waitingForBlockStart ? 'rest-mode' : '';
   
   // Progress Ring parameters
   const radius = 110;
@@ -94,16 +69,10 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
   const strokeColor = isAlertZone ? 'var(--accent-neon-red)' : 'var(--accent-neon-green)'; 
 
   const handlePrimaryAction = () => {
-    if (status === 'running' && !isVoiceMuted) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance('Entrenamiento pausado');
-      utterance.lang = 'es-ES';
-      window.speechSynthesis.speak(utterance);
-    } else if (status !== 'running' && !isVoiceMuted) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance('Entrenamiento reanudado');
-      utterance.lang = 'es-ES';
-      window.speechSynthesis.speak(utterance);
+    if (status === 'running') {
+      speak('Entrenamiento pausado');
+    } else {
+      speak('Entrenamiento reanudado');
     }
 
     if (status === 'running') {
@@ -118,19 +87,14 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
   };
 
   const confirmCompleteAction = () => {
-      if (!isVoiceMuted) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance('Entrenamiento completado. ¡Buen trabajo!');
-        utterance.lang = 'es-ES';
-        window.speechSynthesis.speak(utterance);
-      }
-      completeWorkout();
-      onWorkoutLogged();
-      setIsCompleteDialogOpen(false);
+    speak('Entrenamiento completado. ¡Buen trabajo!');
+    completeWorkout();
+    onWorkoutLogged();
+    setIsCompleteDialogOpen(false);
   };
 
   const handleCancelAction = () => {
-    window.speechSynthesis.cancel();
+    cancel();
     if (status === 'completed') {
       onWorkoutLogged();
     }
@@ -139,11 +103,11 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
   };
 
   return (
-    <div className="screen-container">
+    <div className={`screen-container timer-screen ${stageClass}`}>
       {isAlertZone && status === 'running' && <div className="screen-alert-glow" />}
 
       {status === 'completed' ? (
-        <div className="completion-container">
+        <div className="completion-container workout-finish">
           <div className="completion-icon-wrapper">
             <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="completion-svg">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -157,8 +121,13 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
           </button>
         </div>
       ) : waitingForBlockStart ? (
-        <div className="completion-container" style={{ animation: 'scaleUp 0.4s ease-out forwards' }}>
-          <div className="completion-icon-wrapper blue" style={{ width: '84px', height: '84px' }}>
+        <div className="completion-container block-rest-container">
+          <div className="block-progress" aria-label={`Bloques completados: ${completedBlocks} de 5`}>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <span className={index < completedBlocks ? 'done' : index === currentBlockIndex ? 'next' : ''} key={index} />
+            ))}
+          </div>
+          <div className="completion-icon-wrapper blue compact-icon">
             <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
@@ -166,16 +135,16 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
           </div>
-          <h2 className="completion-title" style={{ fontSize: '1.8rem', color: 'var(--accent-neon-blue)' }}>¡Bloque Completado!</h2>
-          <p className="completion-subtitle" style={{ fontSize: '0.95rem', marginBottom: '24px' }}>
+          <h2 className="completion-title rest-title">Bloque completado</h2>
+          <p className="completion-subtitle rest-subtitle">
             Tómate un breve descanso para preparar el material para el siguiente bloque.
           </p>
 
-          <div className="card active-card" style={{ width: '100%', boxSizing: 'border-box', marginBottom: '28px', borderLeft: '4px solid var(--accent-neon-blue)' }}>
-            <span className="card-label-active" style={{ color: 'var(--accent-neon-blue)' }}>
+          <div className="card active-card next-block-card">
+            <span className="card-label-active blue-label">
               PREPARANDO BLOQUE {currentBlockIndex + 1} DE 5
             </span>
-            <h3 className="card-title-active" style={{ fontSize: '1.25rem' }}>{currentExercise?.name}</h3>
+            <h3 className="card-title-active compact-title">{currentExercise?.name}</h3>
             <div className="badge-row">
               <span className="badge">{currentExercise?.category}</span>
               <span className="badge">Cardio: {currentExercise?.cardiacIntensity}</span>
@@ -192,8 +161,11 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
         </div>
       ) : (
         <div className="workout-container">
-          {/* Top Bar with Voice Toggle */}
           <div className="timer-top-bar">
+            <div className="session-chip">
+              <span>EMOM</span>
+              <strong>{currentBlockIndex + 1}/5</strong>
+            </div>
             <button className={`voice-toggle-btn ${isVoiceMuted ? 'muted' : ''}`} onClick={toggleVoiceMute} title={isVoiceMuted ? 'Activar Entrenador de Voz' : 'Silenciar Entrenador de Voz'}>
               {isVoiceMuted ? (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -214,7 +186,6 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
             </button>
           </div>
 
-          {/* Block & Minute Info */}
           <div className="timer-header">
             <div className="header-item">
               <span className="header-label">BLOQUE EMOM</span>
@@ -230,7 +201,6 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
             </div>
           </div>
 
-          {/* Animated SVG Timer Circle */}
           <div className="timer-circle-wrapper">
             <svg className="timer-svg" width="260" height="260">
               <circle
@@ -259,7 +229,6 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
             </div>
           </div>
 
-          {/* Exercises Cards */}
           <div className="exercise-container">
             <div className="card active-card">
               <span className="card-label-active">TRABAJO ACTUAL (10 REPS)</span>
@@ -278,9 +247,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
             )}
           </div>
 
-          {/* Reorganized Controls */}
           <div className="button-row">
-            {/* Play/Pause */}
             <button
               className={`control-button ${status === 'running' ? 'pause-btn' : 'start-btn'}`}
               style={{ width: '42%' }}
@@ -304,7 +271,6 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
               )}
             </button>
             
-            {/* Complete manually */}
             <button 
               className="control-button complete-btn" 
               style={{ width: '38%' }}
@@ -319,7 +285,6 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLog
               </span>
             </button>
             
-            {/* Cancel/Exit */}
             <button 
               className="control-button cancel-btn" 
               style={{ width: '16%' }}

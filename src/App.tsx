@@ -23,6 +23,9 @@ const formatHistoryDate = (value: string) =>
     minute: '2-digit',
   }).format(new Date(value));
 
+const getTotalDistance = (entries: WorkoutHistoryLog[]) =>
+  entries.reduce((sum, entry) => sum + (entry.totalDistanceMeters ?? 0), 0);
+
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<'home' | 'timer'>('home');
   const [selectedWorkout, setSelectedWorkout] = useState<GymWorkout | SwimWorkout | null>(null);
@@ -32,6 +35,9 @@ export default function App() {
   
   const setWorkout = useTimerStore((state) => state.setWorkout);
   const completeWorkout = useTimerStore((state) => state.completeWorkout);
+  const totalSessions = history.length;
+  const totalDistance = getTotalDistance(history);
+  const latestSession = history[0];
 
   const refreshHistory = () => {
     setHistory(loadWorkoutHistory());
@@ -95,23 +101,44 @@ export default function App() {
         <TimerScreen onCancel={handleCancelWorkout} onWorkoutLogged={refreshHistory} />
       ) : (
         <div className="home-container">
-          <header className="home-header">
-            <div className="logo-badge">
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="logo-svg">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                <path d="M2 4h2" />
-                <path d="M22 4h-2" />
-                <path d="M12 2v2" />
-              </svg>
+          <header className="home-hero">
+            <div className="hero-copy">
+              <span className="hero-kicker">Plan diario</span>
+              <h1 className="app-title">Hybrid Fit Planner</h1>
+              <p className="app-subtitle">Natación suave y fuerza segura, listo para ejecutar.</p>
             </div>
-            <h1 className="app-title">Hybrid Fit Planner</h1>
-            <p className="app-subtitle">Tu planificador inteligente de natación y gimnasio</p>
+            <div className="hero-orbit" aria-hidden="true">
+              <div className="hero-ring">
+                <span>EMOM</span>
+                <strong>50</strong>
+                <small>min</small>
+              </div>
+            </div>
           </header>
 
           <main className="menu-container">
+            <section className="today-strip" aria-label="Resumen de actividad">
+              <div className="today-metric">
+                <span>Sesiones</span>
+                <strong>{totalSessions}</strong>
+              </div>
+              <div className="today-metric">
+                <span>Natación</span>
+                <strong>{totalDistance}m</strong>
+              </div>
+              <div className="today-metric wide">
+                <span>Última</span>
+                <strong>{latestSession ? latestSession.type : 'Pendiente'}</strong>
+              </div>
+            </section>
+
             <section className="selection-section">
-              <h2 className="section-title">Generador de Rutina Diaria</h2>
+              <div className="section-heading-row">
+                <div>
+                  <h2 className="section-title">Elige sesión</h2>
+                  <p className="section-caption">Dos caminos, mismo objetivo: constancia sin improvisar.</p>
+                </div>
+              </div>
               <div className="safety-note">
                 <strong>Plan adaptado:</strong> ejercicios sin apoyo de pie y con intensidad baja/media. Ajusta la ejecución si aparece dolor, fatiga inusual o mareo.
               </div>
@@ -125,6 +152,7 @@ export default function App() {
                   <div className="btn-info">
                     <span className="btn-title">Gimnasio</span>
                     <span className="btn-subtitle">EMOM • Sin apoyo de pie</span>
+                    <span className="btn-meta">5 bloques · 10 reps/min</span>
                   </div>
                 </button>
 
@@ -137,6 +165,7 @@ export default function App() {
                   <div className="btn-info">
                     <span className="btn-title">Natación</span>
                     <span className="btn-subtitle">Principiante • ~1000 metros</span>
+                    <span className="btn-meta">Técnica · Respiración · Ritmo</span>
                   </div>
                 </button>
               </div>
@@ -144,10 +173,8 @@ export default function App() {
 
             {selectedWorkout && (
               <section className="preview-section">
-                <h3 className="preview-title">Rutina Generada:</h3>
-                
                 {isSwimCompleted && selectedWorkout.type === 'Natación' ? (
-                  <div className="preview-card completion-container" style={{ padding: '32px 24px' }}>
+                  <div className="preview-card completion-container completed-card">
                     <div className="completion-icon-wrapper blue">
                       <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="completion-svg">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -161,19 +188,31 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="preview-card">
-                    <h4 className="workout-name">{selectedWorkout.name}</h4>
+                  <div className={`preview-card ${selectedWorkout.type === 'Natación' ? 'swim-preview-card' : 'gym-preview-card'}`}>
+                    <div className="preview-header">
+                      <div>
+                        <span className="preview-title">Rutina generada</span>
+                        <h4 className="workout-name">{selectedWorkout.name}</h4>
+                      </div>
+                      <span className={`workout-pill ${selectedWorkout.type === 'Natación' ? 'swim' : 'gym'}`}>
+                        {selectedWorkout.type}
+                      </span>
+                    </div>
                     
                     {selectedWorkout.type === 'Gimnasio' ? (
                       <div className="gym-preview-details">
-                        <p className="workout-desc">5 bloques EMOM de 10 minutos cada uno (10 repeticiones por minuto).</p>
-                        <ul className="preview-list">
+                        <div className="workout-stats-grid">
+                          <div><span>Duración</span><strong>50 min</strong></div>
+                          <div><span>Bloques</span><strong>5</strong></div>
+                          <div><span>Objetivo</span><strong>10 reps</strong></div>
+                        </div>
+                        <ul className="preview-list block-grid-list">
                           {(selectedWorkout as GymWorkout).blocks.map((block) => (
                             <li key={block.blockNumber} className="preview-list-item">
-                              <strong>Bloque {block.blockNumber}:</strong> 
+                              <strong>Bloque {block.blockNumber}</strong> 
                               <div className="alternating-exercises">
-                                <span>Min impar: {block.exerciseA.name}</span>
-                                <span>Min par: {block.exerciseB.name}</span>
+                                <span><b>Impar</b>{block.exerciseA.name}</span>
+                                <span><b>Par</b>{block.exerciseB.name}</span>
                               </div>
                             </li>
                           ))}
@@ -184,7 +223,11 @@ export default function App() {
                       </div>
                     ) : (
                       <div className="swim-preview-details">
-                        <p className="workout-desc">Volumen total planificado: <strong>{(selectedWorkout as SwimWorkout).totalDistanceMeters}m</strong></p>
+                        <div className="workout-stats-grid swim-stats">
+                          <div><span>Volumen</span><strong>{(selectedWorkout as SwimWorkout).totalDistanceMeters}m</strong></div>
+                          <div><span>Fases</span><strong>4</strong></div>
+                          <div><span>Intensidad</span><strong>Suave</strong></div>
+                        </div>
                         
                         <div className="swim-timeline">
                           {/* Calentamiento */}
@@ -268,7 +311,12 @@ export default function App() {
 
             {history.length > 0 && (
               <section className="history-section">
-                <h3 className="preview-title">Historial reciente</h3>
+                <div className="section-heading-row">
+                  <div>
+                    <h3 className="preview-title">Historial reciente</h3>
+                    <p className="section-caption">Tu constancia, en pequeño y claro.</p>
+                  </div>
+                </div>
                 <div className="history-list">
                   {history.slice(0, 5).map((entry) => (
                     <article className="history-item" key={`${entry.id}-${entry.completedAt}`}>
