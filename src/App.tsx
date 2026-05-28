@@ -1,17 +1,41 @@
 import React, { useState } from 'react';
-import { useTimerStore } from './presentation/state/useTimerStore';
+import { loadWorkoutHistory, useTimerStore, WorkoutHistoryLog } from './presentation/state/useTimerStore';
 import { WorkoutGenerator } from './domain/usecases/WorkoutGenerator';
 import { seedExercises } from './data/database/seedData';
 import { TimerScreen } from './presentation/screens/TimerScreen';
 import { GymWorkout, SwimWorkout } from './domain/entities/Workout';
+import { AppDialog } from './presentation/components/AppDialog';
+
+interface DialogState {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: 'default' | 'danger' | 'swim';
+  onConfirm: () => void;
+}
+
+const formatHistoryDate = (value: string) =>
+  new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<'home' | 'timer'>('home');
   const [selectedWorkout, setSelectedWorkout] = useState<GymWorkout | SwimWorkout | null>(null);
   const [isSwimCompleted, setIsSwimCompleted] = useState<boolean>(false);
+  const [history, setHistory] = useState<WorkoutHistoryLog[]>(() => loadWorkoutHistory());
+  const [dialog, setDialog] = useState<DialogState | null>(null);
   
   const setWorkout = useTimerStore((state) => state.setWorkout);
   const completeWorkout = useTimerStore((state) => state.completeWorkout);
+
+  const refreshHistory = () => {
+    setHistory(loadWorkoutHistory());
+  };
 
   const handleGenerateGym = () => {
     try {
@@ -19,8 +43,13 @@ export default function App() {
       const workout = WorkoutGenerator.generateGymWorkout(seedExercises);
       setSelectedWorkout(workout);
       setWorkout(workout);
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e: unknown) {
+      setDialog({
+        title: 'No se pudo generar la rutina',
+        message: e instanceof Error ? e.message : 'Ha ocurrido un error inesperado.',
+        confirmLabel: 'Entendido',
+        onConfirm: () => setDialog(null),
+      });
     }
   };
 
@@ -39,10 +68,19 @@ export default function App() {
   };
 
   const handleCompleteSwim = () => {
-    if (window.confirm('¿Confirmas que has terminado esta sesión de natación?')) {
-      completeWorkout();
-      setIsSwimCompleted(true);
-    }
+    setDialog({
+      title: 'Completar natación',
+      message: '¿Confirmas que has terminado esta sesión de natación?',
+      confirmLabel: 'Completar',
+      cancelLabel: 'Seguir viendo',
+      tone: 'swim',
+      onConfirm: () => {
+        completeWorkout();
+        setIsSwimCompleted(true);
+        refreshHistory();
+        setDialog(null);
+      },
+    });
   };
 
   const handleCancelWorkout = () => {
@@ -54,7 +92,7 @@ export default function App() {
   return (
     <div className="app-layout">
       {activeScreen === 'timer' && selectedWorkout?.type === 'Gimnasio' ? (
-        <TimerScreen onCancel={handleCancelWorkout} />
+        <TimerScreen onCancel={handleCancelWorkout} onWorkoutLogged={refreshHistory} />
       ) : (
         <div className="home-container">
           <header className="home-header">
@@ -74,6 +112,9 @@ export default function App() {
           <main className="menu-container">
             <section className="selection-section">
               <h2 className="section-title">Generador de Rutina Diaria</h2>
+              <div className="safety-note">
+                <strong>Plan adaptado:</strong> ejercicios sin apoyo de pie y con intensidad baja/media. Ajusta la ejecución si aparece dolor, fatiga inusual o mareo.
+              </div>
               <div className="button-grid">
                 <button className="workout-selector-btn gym" onClick={handleGenerateGym}>
                   <span className="btn-icon">
@@ -224,8 +265,39 @@ export default function App() {
                 )}
               </section>
             )}
+
+            {history.length > 0 && (
+              <section className="history-section">
+                <h3 className="preview-title">Historial reciente</h3>
+                <div className="history-list">
+                  {history.slice(0, 5).map((entry) => (
+                    <article className="history-item" key={`${entry.id}-${entry.completedAt}`}>
+                      <div>
+                        <h4 className="history-title">{entry.type}</h4>
+                        <p className="history-meta">{formatHistoryDate(entry.completedAt)}</p>
+                      </div>
+                      <div className="history-stats">
+                        <span>{entry.durationMinutes} min</span>
+                        {entry.totalDistanceMeters ? <span>{entry.totalDistanceMeters} m</span> : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
           </main>
         </div>
+      )}
+      {dialog && (
+        <AppDialog
+          title={dialog.title}
+          message={dialog.message}
+          confirmLabel={dialog.confirmLabel}
+          cancelLabel={dialog.cancelLabel}
+          tone={dialog.tone}
+          onConfirm={dialog.onConfirm}
+          onCancel={() => setDialog(null)}
+        />
       )}
     </div>
   );

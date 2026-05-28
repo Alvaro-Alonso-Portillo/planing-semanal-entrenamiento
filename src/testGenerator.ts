@@ -27,8 +27,8 @@ function runTests() {
     } else {
       console.log('✅ RESTRICCIÓN CUMPLIDA: Ningún ejercicio requiere apoyo del pie.');
     }
-  } catch (error: any) {
-    console.error('❌ Error al generar entrenamiento de gimnasio:', error.message);
+  } catch (error: unknown) {
+    console.error('❌ Error al generar entrenamiento de gimnasio:', error instanceof Error ? error.message : error);
   }
 
   console.log('\n--------------------------------------------------\n');
@@ -51,8 +51,8 @@ function runTests() {
     console.log(`  - Bloque Principal: ${swimWorkout.mainBlock.reduce((s, i) => s + i.distanceMeters * i.repetitions, 0)}m`);
     console.log(`  - Vuelta a la Calma: ${swimWorkout.cooldown.reduce((s, i) => s + i.distanceMeters * i.repetitions, 0)}m`);
 
-  } catch (error: any) {
-    console.error('❌ Error al generar entrenamiento de natación:', error.message);
+  } catch (error: unknown) {
+    console.error('❌ Error al generar entrenamiento de natación:', error instanceof Error ? error.message : error);
   }
 }
 

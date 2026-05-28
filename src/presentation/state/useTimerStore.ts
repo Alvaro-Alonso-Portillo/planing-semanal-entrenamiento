@@ -1,8 +1,17 @@
 import { create } from 'zustand';
-import { GymWorkout, EMOMBlock, SwimWorkout } from '../../domain/entities/Workout';
+import { GymWorkout, SwimWorkout } from '../../domain/entities/Workout';
 import { Exercise } from '../../domain/entities/Exercise';
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed';
+
+export interface WorkoutHistoryLog {
+  id: string;
+  name: string;
+  type: 'Gimnasio' | 'Natación';
+  completedAt: string;
+  durationMinutes: number;
+  totalDistanceMeters: number | null;
+}
 
 interface TimerState {
   status: TimerStatus;
@@ -13,6 +22,7 @@ interface TimerState {
   currentExercise: Exercise | null;
   nextExercise: Exercise | null;
   waitingForBlockStart: boolean; // Si está esperando a que el usuario inicie el siguiente bloque
+  elapsedSeconds: number;
   
   // Acciones
   setWorkout: (workout: GymWorkout | SwimWorkout) => void;
@@ -23,6 +33,17 @@ interface TimerState {
   syncTime: (elapsedSeconds: number) => void; 
   completeWorkout: () => void; // Finalización manual y guardado en historial
 }
+
+export const loadWorkoutHistory = (): WorkoutHistoryLog[] => {
+  try {
+    const historyJson = localStorage.getItem('workout_history');
+    const history = historyJson ? JSON.parse(historyJson) : [];
+    return Array.isArray(history) ? history : [];
+  } catch (e) {
+    console.warn('No se pudo leer el historial local:', e);
+    return [];
+  }
+};
 
 const getExercisesForTime = (
   workout: GymWorkout | null,
@@ -57,6 +78,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   currentExercise: null,
   nextExercise: null,
   waitingForBlockStart: false,
+  elapsedSeconds: 0,
 
   setWorkout: (workout) => {
     if (workout.type === 'Gimnasio') {
@@ -70,6 +92,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         currentExercise: current,
         nextExercise: next,
         waitingForBlockStart: false,
+        elapsedSeconds: 0,
       });
     } else {
       // Para natación
@@ -82,6 +105,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         currentExercise: null,
         nextExercise: null,
         waitingForBlockStart: false,
+        elapsedSeconds: 0,
       });
     }
   },
@@ -109,55 +133,16 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         currentExercise: null,
         nextExercise: null,
         waitingForBlockStart: false,
+        elapsedSeconds: 0,
       });
     }
   },
 
   tick: () => {
-    const { status, secondsRemaining, currentBlockIndex, currentMinuteIndex, workout } = get();
+    const { status, elapsedSeconds, workout } = get();
     if (status !== 'running' || !workout || workout.type !== 'Gimnasio') return;
 
-    const gymWorkout = workout as GymWorkout;
-
-    if (secondsRemaining > 1) {
-      set({ secondsRemaining: secondsRemaining - 1 });
-    } else {
-      let nextMinute = currentMinuteIndex + 1;
-      let nextBlock = currentBlockIndex;
-      let isTransition = false;
-
-      if (nextMinute >= 10) {
-        nextMinute = 0;
-        nextBlock = currentBlockIndex + 1;
-        isTransition = true;
-      }
-
-      if (nextBlock >= gymWorkout.blocks.length) {
-        // Completar automáticamente al expirar el tiempo total
-        get().completeWorkout();
-      } else if (isTransition) {
-        // Pausa en transición de bloque
-        const { current, next } = getExercisesForTime(gymWorkout, nextBlock, nextMinute);
-        set({
-          status: 'paused',
-          waitingForBlockStart: true,
-          secondsRemaining: 60,
-          currentMinuteIndex: nextMinute,
-          currentBlockIndex: nextBlock,
-          currentExercise: current,
-          nextExercise: next,
-        });
-      } else {
-        const { current, next } = getExercisesForTime(gymWorkout, nextBlock, nextMinute);
-        set({
-          secondsRemaining: 60,
-          currentMinuteIndex: nextMinute,
-          currentBlockIndex: nextBlock,
-          currentExercise: current,
-          nextExercise: next,
-        });
-      }
-    }
+    get().syncTime(elapsedSeconds + 1);
   },
 
   syncTime: (elapsedSeconds) => {
@@ -166,39 +151,52 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     const gymWorkout = workout as GymWorkout;
     const totalSeconds = elapsedSeconds;
+    const totalWorkoutSeconds = gymWorkout.blocks.length * 10 * 60;
+
+    if (totalSeconds >= totalWorkoutSeconds) {
+      set({ elapsedSeconds: totalWorkoutSeconds });
+      get().completeWorkout();
+      return;
+    }
+
+    const previousElapsedSeconds = get().elapsedSeconds;
+    const isBlockBoundary =
+      totalSeconds > 0 &&
+      totalSeconds % (10 * 60) === 0 &&
+      totalSeconds > previousElapsedSeconds;
+
     const totalMinutes = Math.floor(totalSeconds / 60);
-    
     const blockIndex = Math.floor(totalMinutes / 10);
     const minuteIndex = totalMinutes % 10;
-    const secondsRemaining = 60 - (totalSeconds % 60);
+    const secondsIntoMinute = totalSeconds % 60;
+    const secondsRemaining = secondsIntoMinute === 0 ? 60 : 60 - secondsIntoMinute;
 
-    if (blockIndex >= gymWorkout.blocks.length) {
-      get().completeWorkout();
-    } else {
-      const { current, next } = getExercisesForTime(gymWorkout, blockIndex, minuteIndex);
-      set({
-        currentBlockIndex: blockIndex,
-        currentMinuteIndex: minuteIndex,
-        secondsRemaining,
-        currentExercise: current,
-        nextExercise: next,
-      });
-    }
+    const { current, next } = getExercisesForTime(gymWorkout, blockIndex, minuteIndex);
+    set({
+      status: isBlockBoundary ? 'paused' : status,
+      waitingForBlockStart: isBlockBoundary,
+      currentBlockIndex: blockIndex,
+      currentMinuteIndex: minuteIndex,
+      secondsRemaining,
+      currentExercise: current,
+      nextExercise: next,
+      elapsedSeconds: totalSeconds,
+    });
   },
 
   completeWorkout: () => {
-    const { workout, currentBlockIndex, currentMinuteIndex } = get();
+    const { workout, elapsedSeconds } = get();
     if (!workout) return;
 
     // Calcular duración real entrenada
     let duration = 0;
     if (workout.type === 'Gimnasio') {
-      duration = currentBlockIndex * 10 + currentMinuteIndex;
+      duration = Math.ceil(elapsedSeconds / 60);
     } else {
       duration = 45; // Duración estimada para natación
     }
 
-    const log = {
+    const log: WorkoutHistoryLog = {
       id: workout.id,
       name: workout.name,
       type: workout.type,
@@ -209,8 +207,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     // Guardar en el historial de localStorage
     try {
-      const historyJson = localStorage.getItem('workout_history');
-      const history = historyJson ? JSON.parse(historyJson) : [];
+      const history = loadWorkoutHistory();
       history.unshift(log); // Colocar al inicio del historial
       localStorage.setItem('workout_history', JSON.stringify(history));
     } catch (e) {

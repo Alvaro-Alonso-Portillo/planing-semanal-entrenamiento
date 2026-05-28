@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTimerStore } from '../state/useTimerStore';
 import { useWebTimer } from '../hooks/useWebTimer';
+import { AppDialog } from '../components/AppDialog';
 
 interface TimerScreenProps {
   onCancel: () => void;
+  onWorkoutLogged: () => void;
 }
 
-export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
+export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel, onWorkoutLogged }) => {
   const { status, secondsRemaining, pause } = useWebTimer();
   const {
     currentBlockIndex,
@@ -23,6 +25,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
     const saved = localStorage.getItem('voice_coach_muted');
     return saved === 'true';
   });
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
 
   // Toggle voice mute
   const toggleVoiceMute = () => {
@@ -111,7 +114,10 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
   };
 
   const handleCompleteAction = () => {
-    if (window.confirm('¿Seguro que deseas dar por completado este entrenamiento antes de tiempo?')) {
+    setIsCompleteDialogOpen(true);
+  };
+
+  const confirmCompleteAction = () => {
       if (!isVoiceMuted) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance('Entrenamiento completado. ¡Buen trabajo!');
@@ -119,11 +125,15 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
         window.speechSynthesis.speak(utterance);
       }
       completeWorkout();
-    }
+      onWorkoutLogged();
+      setIsCompleteDialogOpen(false);
   };
 
   const handleCancelAction = () => {
     window.speechSynthesis.cancel();
+    if (status === 'completed') {
+      onWorkoutLogged();
+    }
     reset();
     onCancel();
   };
@@ -323,6 +333,16 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ onCancel }) => {
             </button>
           </div>
         </div>
+      )}
+      {isCompleteDialogOpen && (
+        <AppDialog
+          title="Completar entrenamiento"
+          message="¿Seguro que deseas dar por completado este entrenamiento antes de tiempo?"
+          confirmLabel="Completar"
+          cancelLabel="Continuar"
+          onConfirm={confirmCompleteAction}
+          onCancel={() => setIsCompleteDialogOpen(false)}
+        />
       )}
     </div>
   );
